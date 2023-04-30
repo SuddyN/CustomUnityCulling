@@ -1,65 +1,86 @@
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-// This defines a simple unlit Shader object that is compatible with a custom Scriptable Render Pipeline.
-// It applies a hardcoded color, and demonstrates the use of the LightMode Pass tag.
-// It is not compatible with SRP Batcher.
-
-Shader "Examples/SimpleUnlitColor"
+// assisted by guide at https://roystan.net/articles/toon-shader/
+Shader "CustomRendererShader"
 {
-    Properties
-    {
-        // we have removed support for texture tiling/offset,
-        // so make them not be displayed in material inspector
-        [NoScaleOffset] _MainTex("Texture", 2D) = "white" {}
-    }
-        SubShader
-    {
-        Pass
-        {
-            CGPROGRAM
-            // use "vert" function as the vertex shader
-            #pragma vertex vert
-            // use "frag" function as the pixel (fragment) shader
-            #pragma fragment frag
+	Properties
+	{
+		_Color("Color", Color) = (1,1,1,1)
+		_MainTex("Base Texture", 2D) = "white" {}
+		[HDR]
+		_AmbientColor("Ambient", Color) = (0.4,0.4,0.4,1)
+		[HDR]
+		_SpecularColor("Specular", Color) = (0.9,0.9,0.9,1)
+	}
+	SubShader
+	{
+		Pass
+		{
+			Tags
+			{
+				"LightMode" = "ForwardBase"
+				"PassFlags" = "OnlyDirectional"
+			}
 
-            // vertex shader inputs
-            struct appdata
-            {
-                float4 vertex : POSITION; // vertex position
-                float2 uv : TEXCOORD0; // texture coordinate
-            };
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma fragment frag
+			#pragma multi_compile_fwdbase // Compile multiple versions of this shader depending on lighting settings.
 
-    // vertex shader outputs ("vertex to fragment")
-    struct v2f
-    {
-        float2 uv : TEXCOORD0; // texture coordinate
-        float4 vertex : SV_POSITION; // clip space position
-    };
+			#include "UnityCG.cginc"
+			#include "Lighting.cginc"
+			#include "AutoLight.cginc"
 
-    // vertex shader
-    v2f vert(appdata v)
-    {
-        v2f o;
-        // transform position to clip space
-        // (multiply with model*view*projection matrix)
-        o.vertex = UnityObjectToClipPos(v.vertex);
-        // just pass the texture coordinate
-        o.uv = v.uv;
-        return o;
-    }
+			struct IN
+			{
+				float4 vertex : POSITION;
+				float4 uv : TEXCOORD0;
+				float3 normal : NORMAL;
+			};
 
-    // texture we will sample
-    sampler2D _MainTex;
+			struct VertToFrag
+			{
+				float4 pos : SV_POSITION;
+				float3 worldNormal : NORMAL;
+				float2 uv : TEXCOORD0;
+				float3 viewDir : TEXCOORD1;
+				SHADOW_COORDS(2) // Declares a vector4 into TEXCOORD2 semantic with varying precision depending on platform target
+			};
 
-    // pixel shader; returns low precision ("fixed4" type)
-    // color ("SV_Target" semantic)
-    fixed4 frag(v2f i) : SV_Target
-    {
-        // sample texture and return it
-        fixed4 col = tex2D(_MainTex, i.uv);
-        return col;
-    }
-    ENDCG
-}
-    }
+			sampler2D _MainTex;
+			float4 _MainTex_ST;
+
+			VertToFrag vert(IN v)
+			{
+				VertToFrag v2f;
+				v2f.pos = UnityObjectToClipPos(v.vertex);
+				v2f.worldNormal = normalize(UnityObjectToWorldNormal(v.normal));
+				v2f.viewDir = normalize(WorldSpaceViewDir(v.vertex));
+				v2f.uv = TRANSFORM_TEX(v.uv, _MainTex);
+				TRANSFER_SHADOW(v2f) // Assigns shadow coordinate by transforming the vertex from world to shadow-map space
+				return v2f;
+			}
+
+			float4 _Color;
+			float4 _AmbientColor;
+			float4 _SpecularColor;
+
+			float4 frag(VertToFrag v2f) : SV_Target
+			{
+				// NOTE: _WorldSpaceLightPos0 is a vector pointing opposite the main directional light
+
+				// Calculate illumination
+				float NdotL = dot(_WorldSpaceLightPos0, v2f.worldNormal);
+
+				// Smoothly interpolate light intensity between light and dark
+				float lightIntensity = smoothstep(0, 0.01, NdotL * SHADOW_ATTENUATION(v2f));
+
+				// Calculate specular reflection.
+				float3 halfVector = normalize(_WorldSpaceLightPos0 + v2f.viewDir);
+				float specularIntensity = dot(v2f.worldNormal, halfVector) * lightIntensity;
+				float specularIntensitySmooth = smoothstep(0.005, 0.01, specularIntensity);
+				float lighting = (lightIntensity * _LightColor0 + _AmbientColor + specularIntensitySmooth * _SpecularColor);
+				return lighting * _Color * tex2D(_MainTex, v2f.uv);
+			}
+			ENDCG
+		}
+	} Fallback "Diffuse"
 }

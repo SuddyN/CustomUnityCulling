@@ -35,7 +35,7 @@ public class CustomRenderPipeline : RenderPipeline
             context.SetupCameraProperties(camera);
 
             // Tell Unity which geometry to draw, based on its LightMode Pass tag value
-            ShaderTagId shaderTagId = new ShaderTagId("ExampleLightModeTag");
+            ShaderTagId shaderTagId = new ShaderTagId("ForwardBase");
 
             // Tell Unity how to sort the geometry, based on the current Camera
             var sortingSettings = new SortingSettings(camera);
