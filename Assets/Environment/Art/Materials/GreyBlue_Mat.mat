@@ -21,17 +21,16 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: GreyBlue_Mat
-  m_Shader: {fileID: 4800000, guid: 933532a4fcc9baf4fa0491de14d08ed7, type: 3}
-  m_ValidKeywords:
-  - _ENVIRONMENTREFLECTIONS_OFF
+  m_Shader: {fileID: 4800000, guid: a02e149a0c4d68944ae425d811baece7, type: 3}
+  m_ValidKeywords: []
   m_InvalidKeywords:
+  - _ENVIRONMENTREFLECTIONS_OFF
   - _GLOSSYREFLECTIONS_OFF
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2000
-  stringTagMap:
-    RenderType: Opaque
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
   disabledShaderPasses: []
   m_SavedProperties:
     serializedVersion: 3
@@ -114,6 +113,8 @@ Material:
     - _Parallax: 0.02
     - _QueueOffset: 0
     - _ReceiveShadows: 1
+    - _RimAmount: 0.716
+    - _RimThreshold: 0.1
     - _Smoothness: 0.477
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -123,8 +124,11 @@ Material:
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:
+    - _AmbientColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
     - _BaseColor: {r: 0.5110952, g: 0.62652487, b: 0.6886792, a: 1}
     - _Color: {r: 0.51109517, g: 0.62652487, b: 0.6886792, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _RimColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+    - _SpecularColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
   m_BuildTextureStacks: []

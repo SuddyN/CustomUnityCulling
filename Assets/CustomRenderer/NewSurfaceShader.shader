@@ -71,7 +71,7 @@ Shader "CustomRendererShader"
 				float NdotL = dot(_WorldSpaceLightPos0, v2f.worldNormal);
 
 				// Smoothly interpolate light intensity between light and dark
-				float lightIntensity = smoothstep(0, 0.01, NdotL * SHADOW_ATTENUATION(v2f));
+				float lightIntensity = smoothstep(0, 0.01, NdotL * SHADOW_ATTENUATION(v2f)) / 20;
 
 				// Calculate specular reflection.
 				float3 halfVector = normalize(_WorldSpaceLightPos0 + v2f.viewDir);
