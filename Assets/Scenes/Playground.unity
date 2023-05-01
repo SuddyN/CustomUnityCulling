@@ -599,7 +599,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01f3feb8950107d48aa756ba2094c91f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  renderTexture: {fileID: 0}
+  textureTexture: {fileID: 0}
+  depthTexture: {fileID: 0}
   renderTex2d: {fileID: 0}
   shouldFrustumCull: 1
   shouldOcclusionCull: 1
@@ -1641,7 +1642,6 @@ GameObject:
   m_Component:
   - component: {fileID: 8944336655625728440}
   - component: {fileID: 8944336655625728447}
-  - component: {fileID: 8944336655625728446}
   - component: {fileID: 8944336655625728448}
   m_Layer: 0
   m_Name: topDownCamera
@@ -1650,14 +1650,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &8944336655625728446
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8944336655625728445}
-  m_Enabled: 1
 --- !u!20 &8944336655625728447
 Camera:
   m_ObjectHideFlags: 0
