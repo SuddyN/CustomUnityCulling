@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 public class CustomRenderPipelineAsset : RenderPipelineAsset
 {
     // This data can be defined in the Inspector for each Render Pipeline Asset
-    public Color exampleColor;
+    public Color exampleColor = Color.black;
     public string exampleString;
 
     // Unity calls this method before rendering the first frame.

@@ -1,4 +1,6 @@
-// assisted by guide at https://roystan.net/articles/toon-shader/
+// assisted by guides:
+// https://roystan.net/articles/toon-shader/
+// https://forum.unity.com/threads/how-to-make-unlit-shader-that-casts-shadow.646246/
 Shader "CustomRendererShader"
 {
 	Properties
@@ -9,6 +11,11 @@ Shader "CustomRendererShader"
 		_AmbientColor("Ambient", Color) = (0.4,0.4,0.4,1)
 		[HDR]
 		_SpecularColor("Specular", Color) = (0.9,0.9,0.9,1)
+		[Header(Rendering)]
+		_Offset("Offset", float) = 0
+		[Enum(Off,0,On,1)] _ZWrite("ZWrite", Int) = 1
+		[Enum(UnityEngine.Rendering.CompareFunction)] _ZTest("ZTest", Int) = 4
+		[Enum(None,0,Alpha,1,Red,8,Green,4,Blue,2,RGB,14,RGBA,15)] _ColorMask("Color Mask", Int) = 15
 	}
 	SubShader
 	{
@@ -18,7 +25,14 @@ Shader "CustomRendererShader"
 			{
 				"LightMode" = "ForwardBase"
 				"PassFlags" = "OnlyDirectional"
+				"Queue" = "Geometry"
 			}
+
+			LOD 100
+			Offset[_Offset],[_Offset]
+			ZWrite[_ZWrite]
+			ZTest[_ZTest]
+			ColorMask[_ColorMask]
 
 			CGPROGRAM
 			#pragma vertex vert
@@ -79,6 +93,49 @@ Shader "CustomRendererShader"
 				float specularIntensitySmooth = smoothstep(0.005, 0.01, specularIntensity);
 				float lighting = (lightIntensity * _LightColor0 + _AmbientColor + specularIntensitySmooth * _SpecularColor);
 				return lighting * _Color * tex2D(_MainTex, v2f.uv);
+			}
+			ENDCG
+		}
+		// Pass to render object as a shadow caster
+		Pass
+		{
+			Name "ShadowCaster"
+			Tags 
+			{ 
+				"LightMode" = "ShadowCaster"
+				"Queue" = "Geometry" 
+			}
+			LOD 80
+			Offset[_Offset],[_Offset]
+			ZWrite[_ZWrite]
+			ZTest[_ZTest]
+
+			CGPROGRAM
+
+			#include "UnityCG.cginc"
+			#pragma vertex vertShadow
+			#pragma fragment fragShadow
+			#pragma target 2.0
+			#pragma multi_compile_shadowcaster
+
+
+			struct v2fShadow {
+				V2F_SHADOW_CASTER;
+				UNITY_VERTEX_OUTPUT_STEREO
+			};
+
+			v2fShadow vertShadow(appdata_base v)
+			{
+				v2fShadow o;
+				UNITY_SETUP_INSTANCE_ID(v);
+				UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+				TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+				return o;
+			}
+
+			float4 fragShadow(v2fShadow i) : SV_Target
+			{
+				SHADOW_CASTER_FRAGMENT(i)
 			}
 			ENDCG
 		}
