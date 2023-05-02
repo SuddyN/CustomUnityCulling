@@ -1,0 +1,29 @@
+﻿#pragma kernel main
+
+struct Bounds
+{
+	float3 center;
+	float3 size;
+}; 
+
+StructuredBuffer<Bounds> _BoundsBuffer;
+RWStructuredBuffer<int> _IntersectBuffer;
+float4 _Point;
+
+float maxVertex (float3 a, float3 b, float3 c)
+{
+	float mx = max(a.x - b.x - c.x, b.x - a.x - c.x);
+	float my = max(a.y - b.y - c.y, b.y - a.y - c.y);
+	float mz = max(a.z - b.z - c.z, b.z - a.z - c.z);
+	return max(max(mx, my), mz);
+}
+
+[numthreads(8,1,1)]
+void main (uint threadId : SV_DispatchThreadID)
+{
+	uint min, temp;
+	_BoundsBuffer.GetDimensions(min, temp);
+	if (threadId > min && maxVertex(_Point.xyz, _BoundsBuffer[threadId].center, _BoundsBuffer[threadId].size) < 0.0) {
+		_IntersectBuffer[0] = threadId;
+	}
+}
