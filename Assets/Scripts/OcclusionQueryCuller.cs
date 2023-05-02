@@ -27,37 +27,26 @@ public class OcclusionQueryCuller : MonoBehaviour
     public uint cullingDelay = 1;
     public Shader shader;
     public ComputeShader computeShader;
-    public List<Occludee> occledeeList;
-
-    ComputeBuffer readBuffer;
-    ComputeBuffer writeBuffer;
-    ComputeBuffer boundsBuffer;
-    ComputeBuffer intersectBuffer;
+    public List<Occludee> occludeeList;
 
     Vector4[] elements;
     List<Vector4> vertices;
     Material material;
-
-    Camera cam;
-    Plane[] frustumPlanes;
-
-    private void Start()
-    {
-        cam = gameObject.GetComponent<Camera>();
-        cam.depthTextureMode = DepthTextureMode.Depth;
-    }
+    ComputeBuffer writeBuffer;
 
     void Awake()
     {
-        occledeeList = new();
+        occludeeList = new();
         Renderer[] renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
         foreach (Renderer renderer in renderers)
         {
+            // skip objects marked to never be occluded
             if (renderer.GetComponent<NonOccludee>() != null)
             {
                 continue;
             }
-            occledeeList.Add(new Occludee()
+            // add objects to list of potential occludees
+            occludeeList.Add(new Occludee()
             {
                 gameObject = renderer.gameObject,
                 bounds = new(),
@@ -68,6 +57,7 @@ public class OcclusionQueryCuller : MonoBehaviour
 
     Vector4[] GetBounds(GameObject gameObject, int index)
     {
+        // get the bounds from the mesh, if it exist
         if (gameObject.GetComponent<MeshFilter>() != null)
         {
             // create bounds vertices from cube mesh
@@ -80,10 +70,16 @@ public class OcclusionQueryCuller : MonoBehaviour
             }
             return vs;
         }
+        // TODO: support objects without a mesh, or craft a less complex mesh
         Debug.LogWarning("DID NOT HAVE MESH: " + gameObject.name);
         return new Vector4[0];
     }
 
+    /// <summary>
+    /// Gets the AVERAGE center of a set of positions.
+    /// </summary>
+    /// <param name="bounds">A set of vertices. The fourth component (index) is unused.</param>
+    /// <returns>A Vector3 position: the center.</returns>
     Vector3 GetBoundsCenter(Vector4[] bounds)
     {
         Vector3 total = Vector3.zero;
@@ -94,6 +90,12 @@ public class OcclusionQueryCuller : MonoBehaviour
         return total / bounds.Length;
     }
 
+    /// <summary>
+    /// Gets the bounds size of a set of vertices.
+    /// Calculated as the (x, y, z) difference between min and max points.
+    /// </summary>
+    /// <param name="bounds">A set of vertices. The fourth component (index) is unused.</param>
+    /// <returns>A Vector3 scale.</returns>
     Vector3 GetBoundsSize(Vector4[] bounds)
     {
         Vector3 min = Vector3.positiveInfinity;
@@ -109,48 +111,47 @@ public class OcclusionQueryCuller : MonoBehaviour
 
     void OnEnable()
     {
-        if (occledeeList == null || occledeeList.Count <= 0)
+        if (occludeeList == null || occludeeList.Count <= 0)
         {
             return;
         }
-        // init global arrays
-        elements = new Vector4[occledeeList.Count];
+        elements = new Vector4[occludeeList.Count];
 
         // create bounds vertices
         vertices = new List<Vector4>();
-        for (int i = 0; i < occledeeList.Count; i++)
+        for (int i = 0; i < occludeeList.Count; i++)
         {
-            occledeeList[i].meshRenderers.Clear();
-            foreach (MeshRenderer renderer in occledeeList[i].gameObject.GetComponentsInChildren<MeshRenderer>().ToList())
+            occludeeList[i].meshRenderers.Clear();
+            foreach (MeshRenderer renderer in occludeeList[i].gameObject.GetComponentsInChildren<MeshRenderer>().ToList())
             {
-                occledeeList[i].meshRenderers.Add(renderer);
+                occludeeList[i].meshRenderers.Add(renderer);
             }
-            Vector4[] boundVertices = GetBounds(occledeeList[i].gameObject, i);
-            occledeeList[i].bounds.SetCenter(GetBoundsCenter(boundVertices));
-            occledeeList[i].bounds.SetSize(GetBoundsSize(boundVertices));
+            Vector4[] boundVertices = GetBounds(occludeeList[i].gameObject, i);
+            occludeeList[i].bounds.SetCenter(GetBoundsCenter(boundVertices));
+            occludeeList[i].bounds.SetSize(GetBoundsSize(boundVertices));
             vertices.AddRange(boundVertices);
         }
 
         // set boundsBuffer
-        Bounds[] boundsList = new Bounds[occledeeList.Count];
-        for (int i = 0; i < occledeeList.Count; i++)
+        Bounds[] boundsList = new Bounds[occludeeList.Count];
+        for (int i = 0; i < occludeeList.Count; i++)
         {
-            boundsList[i] = occledeeList[i].bounds;
+            boundsList[i] = occludeeList[i].bounds;
         }
-        boundsBuffer = new ComputeBuffer(boundsList.Length, 24, ComputeBufferType.Default);
+        ComputeBuffer boundsBuffer = new ComputeBuffer(boundsList.Length, 24, ComputeBufferType.Default);
         boundsBuffer.SetData(boundsList);
         computeShader.SetBuffer(0, "_BoundsBuffer", boundsBuffer);
 
         // set intersectBuffer
-        intersectBuffer = new ComputeBuffer(1, 4, ComputeBufferType.Default);
+        ComputeBuffer intersectBuffer = new ComputeBuffer(1, 4, ComputeBufferType.Default);
         computeShader.SetBuffer(0, "_IntersectBuffer", intersectBuffer);
 
         // set readBuffer
-        readBuffer = new ComputeBuffer(vertices.Count, 16, ComputeBufferType.Default);
+        ComputeBuffer readBuffer = new ComputeBuffer(vertices.Count, 16, ComputeBufferType.Default);
         readBuffer.SetData(vertices.ToArray());
 
         // set writeBuffer
-        writeBuffer = new ComputeBuffer(occledeeList.Count, 16, ComputeBufferType.Default);
+        writeBuffer = new ComputeBuffer(occludeeList.Count, 16, ComputeBufferType.Default);
         Graphics.ClearRandomWriteTargets();
         Graphics.SetRandomWriteTarget(1, writeBuffer, false);
 
@@ -165,17 +166,17 @@ public class OcclusionQueryCuller : MonoBehaviour
 
     void Update()
     {
-        if (occledeeList.Count == 0 || Time.frameCount % cullingDelay != 0)
+        if (occludeeList.Count == 0 || Time.frameCount % cullingDelay != 0)
         {
             return;
         }
 
         // perform the culling
         writeBuffer.GetData(elements);
-        frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
-        for (int i = 0; i < occledeeList.Count; i++)
+        Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(Camera.main);
+        for (int i = 0; i < occludeeList.Count; i++)
         {
-            foreach (MeshRenderer renderer in occledeeList[i].meshRenderers)
+            foreach (MeshRenderer renderer in occludeeList[i].meshRenderers)
             {
                 renderer.enabled = true;
                 if (shouldFrustumCull && !GeometryUtility.TestPlanesAABB(frustumPlanes, renderer.bounds))
@@ -196,7 +197,7 @@ public class OcclusionQueryCuller : MonoBehaviour
 
     void OnPostRender()
     {
-        if (vertices != null)
+        if (vertices != null && Time.frameCount % cullingDelay != 0)
         {
             material.SetPass(0);
             Graphics.DrawProceduralNow(MeshTopology.Triangles, vertices.Count, 1);
@@ -205,16 +206,16 @@ public class OcclusionQueryCuller : MonoBehaviour
 
     void OnDisable()
     {
-        for (int i = 0; i < occledeeList.Count; i++)
+        foreach (Occludee occludee in occludeeList)
         {
-            foreach (MeshRenderer renderer in occledeeList[i].meshRenderers)
+            foreach (MeshRenderer renderer in occludee.meshRenderers)
             {
+                if (!renderer)
+                {
+                    continue;
+                }
                 renderer.enabled = true;
             }
         }
-        readBuffer?.Release();
-        writeBuffer?.Release();
-        boundsBuffer?.Release();
-        intersectBuffer?.Release();
     }
 }
