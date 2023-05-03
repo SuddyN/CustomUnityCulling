@@ -183,7 +183,7 @@ public class OcclusionQueryCuller : MonoBehaviour
                 {
                     renderer.enabled = false;
                 }
-                if (renderer.enabled && Vector4.Dot(elements[i], elements[i]) <= 0.0f)
+                if (renderer.enabled && elements[i].sqrMagnitude <= 0.0f)
                 {
                     renderer.enabled = false;
                 }
